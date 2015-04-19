@@ -4,6 +4,16 @@ defmodule Mqttsn.Constants do
     0x01
   end
 
+  def topic_flag(:topic_name) do
+    0b00
+  end
+  def topic_flag(:topic_id) do
+    0b01
+  end
+  def topic_flag(:topic_short_name) do
+    0b10
+  end
+
   def message_type(:connect) do
     0x04
   end

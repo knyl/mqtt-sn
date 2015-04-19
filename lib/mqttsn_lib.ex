@@ -103,11 +103,11 @@ defmodule MqttsnLib do
     {:ok, state}
   end
 
-  defp publish_data(message, topic, state) do
-    Logger.debug "Publishing on topic: #{inspect topic}"
+  defp publish_data(message, topic_data, state) do
+    Logger.debug "Publishing on topic: #{inspect topic_data.topic}"
     message_id = get_message_id()
-    flags = 0b00
-    data = %{message_id: message_id, flags: flags, topic: topic, message: message}
+    flags = Mqttsn.Constants.topic_flag(topic_data.type)
+    data = %{message_id: message_id, flags: flags, topic: topic_data.topic, message: message}
     publish_packet = Mqttsn.Message.encode({:publish, data})
     pid = state.connection_pid
     send(pid, {:send, publish_packet})
@@ -124,11 +124,10 @@ defmodule MqttsnLib do
     {:ok, updated_state}
   end
 
-  defp subscribe_to_topic(topic_data, state) do
-    flags = topic_flags(topic_data)
-    topic = get_topic_data(topic_data)
+  defp subscribe_to_topic(topic, state) do
+    flags = Mqttsn.Constants.topic_flag(topic.type)
     message_id = get_message_id()
-    data = %{message_id: message_id, topic: topic, flags: flags}
+    data = %{message_id: message_id, topic: topic.topic, flags: flags}
     subscribe_packet = Mqttsn.Message.encode({:subscribe, data})
     pid = state.connection_pid
     send(pid, {:send, subscribe_packet})
@@ -142,26 +141,15 @@ defmodule MqttsnLib do
       true  ->
         topic_id = HashDict.get(topics, topic)
         Logger.debug "Topic was found, id: #{topic_id}"
-        {:topic_id, topic_id}
+        %{type: :topic_name, topic: topic_id}
       false ->
         Logger.debug "Topic was not found"
-        {:topic_name, topic}
+        %{type: :topic_name, topic: topic}
     end
-  end
-
-  defp topic_flags({:topic_id, _topic}) do
-    0b00
-  end
-  defp topic_flags({:topic_name, _topic}) do
-    0b10
   end
 
   defp get_message_id() do
     10
-  end
-
-  defp get_topic_data({_topic_type, topic}) do
-    topic
   end
 
   defp connect_to_broker(pid) do
