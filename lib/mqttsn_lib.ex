@@ -61,7 +61,7 @@ defmodule MqttsnLib do
   end
 
   def handle_call({:receive_data, data}, _from, state) do
-    parsed_packet = MqttsnParser.parse(data)
+    parsed_packet = Mqttsn.Message.decode(data)
     {:ok, updated_state} = handle_packet(parsed_packet, state)
     {:reply, :ok, updated_state}
   end
