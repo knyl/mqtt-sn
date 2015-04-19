@@ -8,31 +8,31 @@ defmodule MqttsnLib do
      start_link({172,17,0,2}, 1884, [])
    end
 
-  def start_link(ip, port, opts \\ []) do
-    GenServer.start_link(__MODULE__, %{ip: ip, port: port}, opts)
+  def start_link(ip, port, _opts \\ []) do
+    GenServer.start_link(__MODULE__, %{ip: ip, port: port}, name: __MODULE__)
   end
 
-  def subscribe(server, topic) do
-    GenServer.call(server, {:subscribe, topic})
+  def subscribe(topic) do
+    GenServer.call(__MODULE__, {:subscribe, topic})
   end
 
-  def publish(server, topic, data) do
-    GenServer.call(server, {:publish, {topic, data}})
+  def publish(topic, data) do
+    GenServer.call(__MODULE__, {:publish, {topic, data}})
   end
 
-  def register_topic(server, topic) do
-    GenServer.call(server, {:reg_topic, topic})
+  def register_topic(topic) do
+    GenServer.call(__MODULE__, {:reg_topic, topic})
   end
 
-  def receive_data(server, data) do
-    GenServer.call(server, {:receive_data, data})
+  def receive_data(data) do
+    GenServer.call(__MODULE__, {:receive_data, data})
   end
 
   ## Server callbacks
 
   def init(%{ip: ip, port: port}) do
     Logger.debug "Going to spawn process"
-    pid = spawn(MqttsnConn, :start, [ip, port, {__MODULE__, :receive_data, self()}])
+    pid = spawn(MqttsnConn, :start, [ip, port, {__MODULE__, :receive_data}])
     Logger.debug "Spawned communication process"
     socket = connect_to_broker(pid)
     topics = HashDict.new()

@@ -16,7 +16,11 @@ sensor networks.
 
 ```
 {:ok, pid} = MqttsnLib:start_link(ip, port, opts)
-MqttsnLib.subscribe(pid, topic)
+
+MqttsnLib.subscribe(topic_name)
+MqttsnLib.register_topic(topic_name)
+
+MqttsnLib.publish(topic_name, binary_data)
 ```
 
 ** TODO **
