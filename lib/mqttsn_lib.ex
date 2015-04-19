@@ -147,7 +147,7 @@ defmodule MqttsnLib do
   end
 
   defp publish_packet(topic_data, data) do
-    type = Mqttsn.message_type(:publish)
+    type = Mqttsn.Constants.message_type(:publish)
     Logger.debug "Topic data #{inspect topic_data}"
     flags = topic_flags(topic_data)
     # TODO: Only QoS 0 so far, thus message_id 0x0000
@@ -163,7 +163,7 @@ defmodule MqttsnLib do
   end
 
   defp reg_topic_packet(raw_topic_name) do
-    type = Mqttsn.message_type(:reg_topic)
+    type = Mqttsn.Constants.message_type(:reg_topic)
     message_id = get_message_id()
     topic_id = 0
     topic_name = :erlang.term_to_binary(raw_topic_name)
@@ -174,7 +174,7 @@ defmodule MqttsnLib do
   end
 
   defp subscribe_packet(topic_data) do
-    type  = Mqttsn.message_type(:subscribe)
+    type  = Mqttsn.Constants.message_type(:subscribe)
     flags = topic_flags(topic_data)
     message_id = get_message_id()
     topic = :erlang.term_to_binary(get_topic_data(topic_data))
@@ -209,9 +209,9 @@ defmodule MqttsnLib do
   defp connect_packet(client_id) do
     Logger.debug "Connecting with client_id #{client_id}"
     length = 8
-    msg_type = Mqttsn.message_type(:connect)
+    msg_type = Mqttsn.Constants.message_type(:connect)
     flags = 0
-    protocol_id = Mqttsn.protocol_id()
+    protocol_id = Mqttsn.Constants.protocol_id()
     duration = 0x09
     message = <<length::8, msg_type::8, flags::8, protocol_id::8,
                 duration::16, client_id::16>>

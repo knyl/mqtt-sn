@@ -1,4 +1,4 @@
-defmodule Mqttsn do
+defmodule Mqttsn.Constants do
 
   def protocol_id() do
     0x01
