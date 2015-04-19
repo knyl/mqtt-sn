@@ -32,7 +32,7 @@ defmodule MqttsnLib do
 
   def init(%{ip: ip, port: port}) do
     Logger.debug "Going to spawn process"
-    pid = spawn(MqttsnConn, :start, [ip, port, {__MODULE__, :receive_data}])
+    pid = spawn(Connection.Udp, :start, [ip, port, {__MODULE__, :receive_data}])
     Logger.debug "Spawned communication process"
     socket = connect_to_broker(pid)
     topics = HashDict.new()
