@@ -1,7 +1,9 @@
 defmodule Connection.Udp do
   require Logger
 
-   def start(ip, port, {module, function}) do
+   def start({module, function}) do
+     ip = Application.get_env(:mqttsn_lib, :ip)
+     port = Application.get_env(:mqttsn_lib, :port)
      {:ok, socket} = connect(port)
      loop(%{ip: ip, port: port, socket: socket, callback_info: {module, function}})
    end

@@ -4,12 +4,8 @@ defmodule MqttsnLib do
 
   ## Public api: start/1, sub(topic), pub(topic, data)
 
-   def start() do
-     start_link({172,17,0,2}, 1884, [])
-   end
-
-  def start_link(ip, port, _opts \\ []) do
-    GenServer.start_link(__MODULE__, %{ip: ip, port: port}, name: __MODULE__)
+  def start_link(_opts \\ []) do
+    GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
   def subscribe(topic) do
@@ -30,14 +26,14 @@ defmodule MqttsnLib do
 
   ## Server callbacks
 
-  def init(%{ip: ip, port: port}) do
+  def init(_args) do
     Logger.debug "Going to spawn process"
-    pid = spawn(Connection.Udp, :start, [ip, port, {__MODULE__, :receive_data}])
+    pid = spawn(Connection.Udp, :start, [{__MODULE__, :receive_data}])
     Logger.debug "Spawned communication process"
     socket = connect_to_broker(pid)
     topics = HashDict.new()
-    {:ok, %{socket: socket, topics: topics, ip: ip, port: port, connection_pid:
-        pid, connected: false, subscribe_message: [], reg_topic_status: []}}
+    {:ok, %{socket: socket, topics: topics, connection_pid: pid,
+            connected: false, subscribe_message: [], reg_topic_status: []}}
   end
 
   def handle_call({:subscribe, topic}, _from, state) do
