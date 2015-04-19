@@ -9,6 +9,8 @@ sensor networks.
 - only QoS 0 so far
 - connect
 - subscribe to topic
+- register topic
+- publish
 
 ** Usage **
 
@@ -19,8 +21,6 @@ MqttsnLib.subscribe(pid, topic)
 
 ** TODO **
 
-- Publish
-- Receive data
 - Better/more logging
 - Start application and processes in a proper way
 - Handle QoS properly (add to configuration? fail if non-implemented QoS is
@@ -28,6 +28,7 @@ MqttsnLib.subscribe(pid, topic)
 - Error handling
 - Proper message id
 - Proper client id
+- Proper internal data structure
 - Tests!!
 - All the things..
 

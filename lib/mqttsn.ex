@@ -28,6 +28,30 @@ defmodule Mqttsn do
   def message_type(0x13) do
     :sub_ack
   end
+  def message_type(:reg_topic) do
+    0x0A
+  end
+  def message_type(0x0A) do
+    :reg_topic
+  end
+  def message_type(:reg_ack) do
+    0x0B
+  end
+  def message_type(0x0B) do
+    :reg_ack
+  end
+  def message_type(:publish) do
+    0x0C
+  end
+  def message_type(0x0C) do
+    :publish
+  end
+  def message_type(:pub_ack) do
+    0x0D
+  end
+  def message_type(0x0D) do
+    :pub_ack
+  end
 
 
   def return_code(0x00) do
