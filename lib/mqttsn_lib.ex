@@ -73,8 +73,8 @@ defmodule MqttsnLib do
     :ok = response.return_code
     message_id = response.message_id
     Logger.debug "Received sub_ack for message_id #{message_id}"
-    {^message_id, topic_data} = state.subscribe_message
-    updated_topic_data = update_topic_data(topic_data, response.topic_id, state.topics)
+    {^message_id, topic} = state.subscribe_message
+    updated_topic_data = HashDict.put(state.topics, topic, response.topic_id)
     updated_state = %{state | topics: updated_topic_data, subscribe_message: []}
     {:ok, updated_state}
   end
@@ -103,34 +103,37 @@ defmodule MqttsnLib do
     {:ok, state}
   end
 
-  defp publish_data(data, topic_data, state) do
-    {publish_packet, {_message_id, _topic_data}} = publish_packet(topic_data, data)
+  defp publish_data(message, topic, state) do
+    Logger.debug "Publishing on topic: #{inspect topic}"
+    message_id = get_message_id()
+    flags = 0b00
+    data = %{message_id: message_id, flags: flags, topic: topic, message: message}
+    publish_packet = Mqttsn.Message.encode({:publish, data})
     pid = state.connection_pid
     send(pid, {:send, publish_packet})
     {:ok, state}
   end
 
-  defp reg_topic(topic, state) do
-    {reg_packet, register_topic_info} = reg_topic_packet(topic)
+  defp reg_topic(topic_name, state) do
+    message_id = get_message_id()
+    data = %{message_id: message_id, topic_name: topic_name}
+    reg_packet = Mqttsn.Message.encode({:reg_topic, data})
     pid = state.connection_pid
     send(pid, {:send, reg_packet})
-    updated_state = %{state | reg_topic_status: {register_topic_info, topic}}
+    updated_state = %{state | reg_topic_status: {message_id, topic_name}}
     {:ok, updated_state}
   end
 
   defp subscribe_to_topic(topic_data, state) do
-    {subscribe_packet, subscribe_info} = subscribe_packet(topic_data)
+    flags = topic_flags(topic_data)
+    topic = get_topic_data(topic_data)
+    message_id = get_message_id()
+    data = %{message_id: message_id, topic: topic, flags: flags}
+    subscribe_packet = Mqttsn.Message.encode({:subscribe, data})
     pid = state.connection_pid
     send(pid, {:send, subscribe_packet})
-    updated_state = %{state | subscribe_message: subscribe_info}
+    updated_state = %{state | subscribe_message: {message_id, topic}}
     {:ok, updated_state}
-  end
-
-  defp update_topic_data({:topic_id, _}, _, topics) do
-    topics
-  end
-  defp update_topic_data({:topic_name, topic}, topic_id, topics) do
-    HashDict.put(topics, topic, topic_id)
   end
 
   defp prepare_topic_data(topics, topic) do
@@ -144,45 +147,6 @@ defmodule MqttsnLib do
         Logger.debug "Topic was not found"
         {:topic_name, topic}
     end
-  end
-
-  defp publish_packet(topic_data, data) do
-    type = Mqttsn.Constants.message_type(:publish)
-    Logger.debug "Topic data #{inspect topic_data}"
-    flags = topic_flags(topic_data)
-    # TODO: Only QoS 0 so far, thus message_id 0x0000
-    message_id = 0
-    topic = get_topic_data(topic_data)
-    Logger.debug "Publishing on topic: #{inspect topic}"
-    #Logger.debug "Data to be published: #{inspect data}"
-    Logger.debug "Data is binary: #{inspect is_binary(data)}"
-    data_length = byte_size(data)
-    length = 7 + data_length
-    {<<length::8, type::8, flags::8, topic::16, message_id::16,
-      data::binary>>, {message_id, topic_data}}
-  end
-
-  defp reg_topic_packet(raw_topic_name) do
-    type = Mqttsn.Constants.message_type(:reg_topic)
-    message_id = get_message_id()
-    topic_id = 0
-    topic_name = :erlang.term_to_binary(raw_topic_name)
-    topic_length = byte_size(topic_name)
-    length = 6 + topic_length
-    {<<length::8, type::8, topic_id::16, message_id::16, topic_name::binary>>,
-      message_id}
-  end
-
-  defp subscribe_packet(topic_data) do
-    type  = Mqttsn.Constants.message_type(:subscribe)
-    flags = topic_flags(topic_data)
-    message_id = get_message_id()
-    topic = :erlang.term_to_binary(get_topic_data(topic_data))
-    topic_length = byte_size(topic)
-    length = 5 + topic_length
-    ## TODO: fix length here, can be variable
-    {<<length::8, type::8, flags::8, message_id::16, topic::binary>>,
-      {message_id, topic_data}}
   end
 
   defp topic_flags({:topic_id, _topic}) do
@@ -201,21 +165,13 @@ defmodule MqttsnLib do
   end
 
   defp connect_to_broker(pid) do
-    connect_packet = connect_packet(16)
+    client_id = 16
+    Logger.debug "Connecting with client_id #{client_id}"
+    flags = 0
+    data = %{flags: flags, client_id: client_id}
+    connect_packet = Mqttsn.Message.encode({:connect, data})
     send(pid, {:send, connect_packet})
     Logger.debug "Sent connect package to broker"
-  end
-
-  defp connect_packet(client_id) do
-    Logger.debug "Connecting with client_id #{client_id}"
-    length = 8
-    msg_type = Mqttsn.Constants.message_type(:connect)
-    flags = 0
-    protocol_id = Mqttsn.Constants.protocol_id()
-    duration = 0x09
-    message = <<length::8, msg_type::8, flags::8, protocol_id::8,
-                duration::16, client_id::16>>
-    message
   end
 
 end
