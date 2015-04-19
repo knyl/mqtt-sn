@@ -1,5 +1,6 @@
 defmodule MqttsnLib do
   use GenServer
+  require Logger
 
   ## Public api: start/1, sub(topic), pub(topic, data)
 
@@ -23,15 +24,24 @@ defmodule MqttsnLib do
     GenServer.call(server, {:reg_topic, topic})
   end
 
+  def receive_data(server, data) do
+    GenServer.call(server, {:receive_data, data})
+  end
+
   ## Server callbacks
 
   def init(%{ip: ip, port: port}) do
-    socket = connect(ip, port)
+    Logger.info "Going to spawn process"
+    pid = spawn(MqttsnConn, :start, [ip, port, {__MODULE__, :receive_data, self()}])
+    Logger.info "Spawned communication process"
+    socket = connect_to_broker(pid)
     topics = HashDict.new()
-    {:ok, %{socket: socket, topics: topics, ip: ip, port: port}}
+    {:ok, %{socket: socket, topics: topics, ip: ip, port: port, connection_pid:
+        pid, connected: false, subscribe_message: []}}
   end
 
   def handle_call({:subscribe, topic}, _from, state) do
+    true = state.connected # assert to make sure we're connected
     registered_topics = state.topics
     topic_data = case HashDict.has_key?(registered_topics, topic) do
       true  ->
@@ -44,20 +54,38 @@ defmodule MqttsnLib do
   end
 
   def handle_call({:publish, {_topic, _data}}, _from, state) do
+    true = state.connected # assert to make sure we're connected
     {:reply, [], state}
   end
 
   def handle_call({:reg_topic, _topic}, _from, state) do
+    true = state.connected # assert to make sure we're connected
     {:reply, :ok, state}
   end
 
-  defp subscribe_to_topic(topic_data, state) do
-    subscribe_packet = subscribe_packet(topic_data)
-    :ok = :gen_udp.send(state.socket, state.ip, state.port, subscribe_packet)
-    {:sub_ack, response} = receive_packet(state.socket)
+  def handle_call({:receive_data, data}, _from, state) do
+    parsed_packet = MqttsnParser.parse(data)
+    {:ok, updated_state} = handle_packet(parsed_packet, state)
+    {:reply, :ok, updated_state}
+  end
+
+  defp handle_packet({:sub_ack, response}, state) do
     :ok = response.return_code
+    message_id = response.message_id
+    {^message_id, topic_data} = state.subscribe_message
     updated_topic_data = update_topic_data(topic_data, response.topic_id, state.topics)
-    updated_state = %{state | topics: updated_topic_data}
+    updated_state = %{state | topics: updated_topic_data, subscribe_message: []}
+    {:ok, updated_state}
+  end
+  defp handle_packet({:conn_ack, :ok}, state) do
+    {:ok, %{state | connected: true}}
+  end
+
+  defp subscribe_to_topic(topic_data, state) do
+    {subscribe_packet, subscribe_info} = subscribe_packet(topic_data)
+    pid = state.connection_pid
+    send(pid, {:send, subscribe_packet})
+    updated_state = %{state | subscribe_message: subscribe_info}
     {:ok, updated_state}
   end
 
@@ -76,7 +104,8 @@ defmodule MqttsnLib do
     topic_length = byte_size(topic)
     length = 5 + topic_length
     ## TODO: fix length here, can be variable
-    <<length::8, type::8, flags::8, message_id::16, topic::binary>>
+    {<<length::8, type::8, flags::8, message_id::16, topic::binary>>,
+      {message_id, topic_data}}
   end
 
   defp subscribe_flags({:topic_id, _topic}) do
@@ -94,27 +123,14 @@ defmodule MqttsnLib do
     topic
   end
 
-  defp connect(ip, port) do
-    ## Connect to broker
-    IO.puts "got #{port}"
-    {:ok, socket} = :gen_udp.open(port, [:binary, active: true])
-    IO.puts "Accepting connections on port #{port}"
-    :ok = connect_to_broker(socket, ip, port)
-    socket
-  end
-
-  defp connect_to_broker(socket, ip, port) do
+  defp connect_to_broker(pid) do
     connect_packet = connect_packet(16)
-    IO.puts "Connect packet: #{connect_packet}"
-    :ok = :gen_udp.send(socket, ip, port, connect_packet)
-    IO.puts "sent package"
-    {:conn_ack, :ok} = receive_packet(socket)
-    IO.puts "received ok conn_ack"
-    :ok
+    send(pid, {:send, connect_packet})
+    Logger.info "Sent connect package to broker"
   end
 
   defp connect_packet(client_id) do
-    IO.puts "Connecting with client_id #{client_id}"
+    Logger.info "Connecting with client_id #{client_id}"
     length = 8
     msg_type = Mqttsn.message_type(:connect)
     flags = 0
@@ -123,16 +139,6 @@ defmodule MqttsnLib do
     message = <<length::8, msg_type::8, flags::8, protocol_id::8,
                 duration::16, client_id::16>>
     message
-  end
-
-  defp receive_packet(socket) do
-    receive do
-      {:udp, ^socket, _ip, _in_port_no, packet} ->
-        #IO.puts "Got packet #{packet}"
-        parsed_packet = MqttsnParser.parse(packet)
-        parsed_packet
-      _ -> :ok
-    end
   end
 
 end
