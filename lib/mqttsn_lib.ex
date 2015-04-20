@@ -27,13 +27,10 @@ defmodule MqttsnLib do
   ## Server callbacks
 
   def init(_args) do
-    Logger.debug "Going to spawn process"
-    pid = spawn(Connection.Udp, :start, [{__MODULE__, :receive_data}])
-    Logger.debug "Spawned communication process"
-    socket = connect_to_broker(pid)
+    socket = connect_to_broker()
     topics = HashDict.new()
-    {:ok, %{socket: socket, topics: topics, connection_pid: pid,
-            connected: false, subscribe_message: [], reg_topic_status: []}}
+    {:ok, %{socket: socket, topics: topics, connected: false,
+            subscribe_message: [], reg_topic_status: []}}
   end
 
   def handle_call({:subscribe, topic}, _from, state) do
@@ -105,8 +102,7 @@ defmodule MqttsnLib do
     flags = Mqttsn.Constants.topic_flag(topic_data.type)
     data = %{message_id: message_id, flags: flags, topic: topic_data.topic, message: message}
     publish_packet = Mqttsn.Message.encode({:publish, data})
-    pid = state.connection_pid
-    send(pid, {:send, publish_packet})
+    send_data(publish_packet)
     {:ok, state}
   end
 
@@ -114,8 +110,7 @@ defmodule MqttsnLib do
     message_id = get_message_id()
     data = %{message_id: message_id, topic_name: topic_name}
     reg_packet = Mqttsn.Message.encode({:reg_topic, data})
-    pid = state.connection_pid
-    send(pid, {:send, reg_packet})
+    send_data(reg_packet)
     updated_state = %{state | reg_topic_status: {message_id, topic_name}}
     {:ok, updated_state}
   end
@@ -125,8 +120,7 @@ defmodule MqttsnLib do
     message_id = get_message_id()
     data = %{message_id: message_id, topic: topic.topic, flags: flags}
     subscribe_packet = Mqttsn.Message.encode({:subscribe, data})
-    pid = state.connection_pid
-    send(pid, {:send, subscribe_packet})
+    send_data(subscribe_packet)
     updated_state = %{state | subscribe_message: {message_id, topic}}
     {:ok, updated_state}
   end
@@ -148,14 +142,18 @@ defmodule MqttsnLib do
     10
   end
 
-  defp connect_to_broker(pid) do
+  defp connect_to_broker() do
     client_id = 16
     Logger.debug "Connecting with client_id #{client_id}"
     flags = 0
     data = %{flags: flags, client_id: client_id}
     connect_packet = Mqttsn.Message.encode({:connect, data})
-    send(pid, {:send, connect_packet})
+    send_data(connect_packet)
     Logger.debug "Sent connect package to broker"
+  end
+
+  defp send_data(packet) do
+    Connection.Udp.send_data(packet)
   end
 
 end
