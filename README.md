@@ -14,8 +14,10 @@ sensor networks.
 
 ** Usage **
 
+Update `mix.exs` with your rsmb broker information (ip, port).
+
 ```
-{:ok, pid} = MqttsnLib:start_link(ip, port, opts)
+Mqttsn.Supervisor:start_link()
 
 MqttsnLib.subscribe(topic_name)
 MqttsnLib.register_topic(topic_name)
@@ -26,7 +28,6 @@ MqttsnLib.publish(topic_name, binary_data)
 ** TODO **
 
 - Better/more logging
-- Start application and processes in a proper way
 - Handle QoS properly (add to configuration? fail if non-implemented QoS is
     requested)
 - Error handling
