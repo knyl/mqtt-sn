@@ -30,8 +30,9 @@ defmodule MqttsnLib do
     :inets.start()
     socket = connect_to_broker()
     topics = HashDict.new()
+    {ok, table_name} = :dets.open_file(:temp_data_backup, [])
     {:ok, %{socket: socket, topics: topics, connected: false,
-            subscribe_message: [], reg_topic_status: []}}
+            subscribe_message: [], reg_topic_status: [], dets: table_name}}
   end
 
   def handle_call({:subscribe, topic}, _from, state) do
@@ -85,7 +86,7 @@ defmodule MqttsnLib do
     temperature = raw_temperature / 100
     Logger.info "Received temperature: #{inspect temperature} at time #{time}"
 
-    send_data_to_kibana(temperature)
+    send_data_to_kibana(temperature, state)
     {:ok, state}
   end
   defp handle_packet({:reg_ack, response}, state) do
@@ -185,9 +186,13 @@ defmodule MqttsnLib do
     Connection.Udp.send_data(packet)
   end
 
-  def send_data_to_kibana(temperature) do
+  def send_data_to_kibana(temperature, state) do
     now = :calendar.universal_time()
-    {{year, month, day}, _} = now
+    send_data_to_kibana(temperature, now, state)
+  end
+
+  defp send_data_to_kibana(temperature, time, state) do
+    {{year, month, day}, _} = time
     date = List.flatten(:io_lib.format("~4.10.0B.~2.10.0B.~2.10.0B", [year, month, day]))
     Logger.debug "Date: #{date}"
     url_b = Enum.join(['http://localhost/logstash-', date, '/entry'])
@@ -199,7 +204,7 @@ defmodule MqttsnLib do
                 :erlang.binary_to_list(Enum.join(['Basic ', :base64.encode_to_string(auth_string)]))}]
     #headers = :erlang.binary_to_list(headers_b)
     content_type = 'Application/json'
-    timestamp = iso_8601_fmt(now)
+    timestamp = iso_8601_fmt(time)
     location = "knyppeldynan"
     device = "balcony_green_house_01"
     body_b = Enum.join(["{ \"timestamp\": \"", timestamp, "\", \"location\": \"", location,
@@ -211,6 +216,11 @@ defmodule MqttsnLib do
     Logger.debug "Headers: #{inspect headers}"
     {ok, result} = :httpc.request(:post, {url, headers, content_type, body}, [], [])
     Logger.debug "Got result #{inspect result}"
+    case result do
+      {{_, 502, _}, _, _} -> save_data_locally(temperature, time, state.dets)
+      {502, _} -> save_data_locally(temperature, time, state.dets)
+      _ -> :ok
+    end
   end
 
   defp iso_8601_fmt(date_time) do
@@ -218,5 +228,12 @@ defmodule MqttsnLib do
     :io_lib.format("~4.10.0B-~2.10.0B-~2.10.0BT~2.10.0B:~2.10.0B:~2.10.0BZ",
                    [year, month, day, hour, min, sec])
   end
+
+  def save_data_locally(temperature, time, table_name) do
+    result = :dets.insert(table_name, {temperature, time})
+    Logger.info "Inserting {#{temperature}, #{inspect time}} into dets with result {#inspect result}"
+    :ok
+  end
+
 
 end
