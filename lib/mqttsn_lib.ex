@@ -110,7 +110,7 @@ defmodule MqttsnLib do
     Logger.debug "Topic_name: #{data.topic_name}"
     updated_topic_data = HashDict.put(state.topics, data.topic_name, data.topic_id)
 
-    return_code = Mqttsn.Constants.get_return_code(:ok)
+    return_code = Mqttsn.Constants.return_code(:ok)
     data = %{message_id: data.message_id, topic_id: data.topic_id, return_code: return_code}
     reg_ack_packet = Mqttsn.Message.encode({:reg_ack, data})
     send_data(reg_ack_packet)
