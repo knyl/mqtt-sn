@@ -67,6 +67,7 @@ defmodule MqttsnLib do
     message_id = response.message_id
     Logger.debug "Received sub_ack for message_id #{message_id}"
     {^message_id, topic} = state.subscribe_message
+    Logger.debug "Topic id is #{inspect response.topic_id}"
     updated_topic_data = HashDict.put(state.topics, topic, response.topic_id)
     updated_state = %{state | topics: updated_topic_data, subscribe_message: []}
     {:ok, updated_state}
@@ -85,6 +86,7 @@ defmodule MqttsnLib do
     :ok = response.return_code
     message_id = response.message_id
     Logger.debug "Received reg_ack for message_id #{message_id}"
+    Logger.debug "Topic id is #{response.topic_id}"
     {^message_id, topic} = state.reg_topic_status
     updated_topic_data = HashDict.put(state.topics, topic, response.topic_id)
     updated_state = %{state | topics: updated_topic_data, reg_topic_status: []}
@@ -95,6 +97,25 @@ defmodule MqttsnLib do
     Logger.debug "Received pub_ack with status #{inspect status}"
     {:ok, state}
   end
+  defp handle_packet({:reg_topic, data}, state) do
+    Logger.debug "Got register topic"
+    Logger.debug "Topic_id: #{data.topic_id}"
+    Logger.debug "Topic_name: #{data.topic_name}"
+    updated_topic_data = HashDict.put(state.topics, data.topic_name, data.topic_id)
+
+    return_code = Mqttsn.Constants.get_return_code(:ok)
+    data = %{message_id: data.message_id, topic_id: data.topic_id, return_code: return_code}
+    reg_ack_packet = Mqttsn.Message.encode({:reg_ack, data})
+    send_data(reg_ack_packet)
+
+    updated_state = %{state | topics: updated_topic_data}
+    {:ok, updated_state}
+  end
+  defp handle_packet({message, _response}, state) do
+    Logger.debug "Got unknown message #{inspect message}"
+    {:ok, state}
+  end
+
 
   defp publish_data(message, topic_data, state) do
     Logger.debug "Publishing on topic: #{inspect topic_data.topic}"
@@ -119,6 +140,7 @@ defmodule MqttsnLib do
     flags = Mqttsn.Constants.topic_flag(topic.type)
     message_id = get_message_id()
     data = %{message_id: message_id, topic: topic.topic, flags: flags}
+    Logger.debug "Subscribing to topic: #{topic.topic}"
     subscribe_packet = Mqttsn.Message.encode({:subscribe, data})
     send_data(subscribe_packet)
     updated_state = %{state | subscribe_message: {message_id, topic}}
@@ -153,6 +175,7 @@ defmodule MqttsnLib do
   end
 
   defp send_data(packet) do
+    Logger.debug "Data to be sent: #{inspect packet}"
     Connection.Udp.send_data(packet)
   end
 

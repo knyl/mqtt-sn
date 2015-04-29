@@ -23,6 +23,9 @@ defmodule Mqttsn.Message do
   def encode({:connect, data}) do
     encode_connect(data)
   end
+  def encode({:reg_ack, data}) do
+    encode_reg_ack(data)
+  end
 
   ## Decode functions
 
@@ -42,6 +45,9 @@ defmodule Mqttsn.Message do
   defp decode_with_header(:pub_ack, _length, data) do
     decode_pub_ack(data)
   end
+  defp decode_with_header(:reg_topic, _length, data) do
+    decode_reg_topic(data)
+  end
 
   defp decode_sub_ack(<<_flags::8, topic_id::16, message_id::16, raw_return_code::8 >>) do
     return_code = Mqttsn.Constants.return_code(raw_return_code)
@@ -60,6 +66,10 @@ defmodule Mqttsn.Message do
   defp decode_pub_ack(<<topic_id::16, message_id::16, raw_return_code::8 >>) do
     return_code = Mqttsn.Constants.return_code(raw_return_code)
     {:pub_ack, %{topic_id: topic_id, message_id: message_id, return_code: return_code}}
+  end
+
+  defp decode_reg_topic(<<topic_id::16, message_id::16, topic_name::binary>>) do
+    {:reg_topic, %{topic_id: topic_id, topic_name: topic_name, message_id: message_id}}
   end
 
   ## Encode functions
@@ -84,6 +94,15 @@ defmodule Mqttsn.Message do
     topic_name = :erlang.term_to_binary(raw_topic_name)
     length = 6 + byte_size(topic_name)
     <<length::8, type::8, topic_id::16, message_id::16, topic_name::binary>>
+  end
+
+  defp encode_reg_ack(data) do
+    type = Mqttsn.Constants.message_type(:reg_ack)
+    length = 7
+    topic_id = data.topic_id
+    message_id = data.message_id
+    return_code = data.return_code
+    <<length::8, type:: 8, topic_id::16, message_id::16, return_code::8>>
   end
 
   defp encode_publish(data) do

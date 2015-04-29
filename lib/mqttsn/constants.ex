@@ -67,14 +67,26 @@ defmodule Mqttsn.Constants do
   def return_code(0x00) do
     :ok
   end
+  def return_code(:ok) do
+    0x00
+  end
   def return_code(0x01) do
     {:rejected, :congestion}
+  end
+  def return_code({:rejected, :congestion}) do
+    0x01
   end
   def return_code(0x02) do
     {:rejected, :invalid_topic_id}
   end
+  def return_code({:rejected, :invalid_topic_id}) do
+    0x02
+  end
   def return_code(0x03) do
     {:rejected, :not_supported}
+  end
+  def return_code({:rejected, :not_supported}) do
+    0x03
   end
 
 end
