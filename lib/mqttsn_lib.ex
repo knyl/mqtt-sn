@@ -27,6 +27,7 @@ defmodule MqttsnLib do
   ## Server callbacks
 
   def init(_args) do
+    :inets.start()
     socket = connect_to_broker()
     topics = HashDict.new()
     {:ok, %{socket: socket, topics: topics, connected: false,
@@ -80,6 +81,11 @@ defmodule MqttsnLib do
   end
   defp handle_packet({:publish, data}, state) do
     Logger.debug "Received publish with data #{inspect data}"
+    <<raw_temperature::32-integer-signed-little, time::32>> = data.data
+    temperature = raw_temperature / 100
+    Logger.info "Received temperature: #{inspect temperature} at time #{time}"
+
+    send_data_to_kibana(temperature)
     {:ok, state}
   end
   defp handle_packet({:reg_ack, response}, state) do
@@ -177,6 +183,40 @@ defmodule MqttsnLib do
   defp send_data(packet) do
     Logger.debug "Data to be sent: #{inspect packet}"
     Connection.Udp.send_data(packet)
+  end
+
+  def send_data_to_kibana(temperature) do
+    now = :calendar.universal_time()
+    {{year, month, day}, _} = now
+    date = List.flatten(:io_lib.format("~4.10.0B.~2.10.0B.~2.10.0B", [year, month, day]))
+    Logger.debug "Date: #{date}"
+    url_b = Enum.join(['http://localhost/logstash-', date, '/entry'])
+    url = :erlang.binary_to_list(url_b)
+    username = "foo"
+    password = "foo"
+    auth_string = Enum.join([username, ":", password])
+    headers = [{'Authorization',
+                :erlang.binary_to_list(Enum.join(['Basic ', :base64.encode_to_string(auth_string)]))}]
+    #headers = :erlang.binary_to_list(headers_b)
+    content_type = 'Application/json'
+    timestamp = iso_8601_fmt(now)
+    location = "knyppeldynan"
+    device = "balcony_green_house_01"
+    body_b = Enum.join(["{ \"timestamp\": \"", timestamp, "\", \"location\": \"", location,
+                        "\", \"device\": \"", device, "\", \"temp_01\": ", temperature, "}"])
+    body = :erlang.binary_to_list(body_b)
+    Logger.debug "Going to send request: "
+    Logger.debug "Url: #{url}"
+    Logger.debug "Body: #{body}"
+    Logger.debug "Headers: #{inspect headers}"
+    {ok, result} = :httpc.request(:post, {url, headers, content_type, body}, [], [])
+    Logger.debug "Got result #{inspect result}"
+  end
+
+  defp iso_8601_fmt(date_time) do
+    {{year, month, day},{hour, min, sec}} = date_time
+    :io_lib.format("~4.10.0B-~2.10.0B-~2.10.0BT~2.10.0B:~2.10.0B:~2.10.0BZ",
+                   [year, month, day, hour, min, sec])
   end
 
 end
