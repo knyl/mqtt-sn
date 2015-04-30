@@ -83,10 +83,11 @@ defmodule Mqttsn.Message do
     <<length::8, msg_type::8, flags::binary, protocol_id::8, duration::16, client_id::16>>
   end
 
-  defp encode_subscribe(%{message_id: message_id, topic: topic, flags: flags}) do
+  defp encode_subscribe(%{message_id: message_id, topic: topic, flags: raw_flags}) do
+    flags = Mqttsn.Constants.flags(raw_flags)
     type = Mqttsn.Constants.message_type(:subscribe)
     length = 5 + byte_size(topic)
-    <<length::8, type::8, flags::8, message_id::16, topic::binary>>
+    <<length::8, type::8, flags::binary, message_id::16, topic::binary>>
   end
 
   defp encode_reg_topic(%{message_id: message_id, topic_name: raw_topic_name}) do
@@ -108,12 +109,12 @@ defmodule Mqttsn.Message do
 
   defp encode_publish(data) do
     type = Mqttsn.Constants.message_type(:publish)
-    flags = data.flags
+    flags = Mqttsn.Constants.flags(data.flags)
     topic = data.topic
     message_id = data.message_id
     message = data.message
     length = 7 + byte_size(message)
-    <<length::8, type::8, flags::8, topic::16, message_id::16, message::binary>>
+    <<length::8, type::8, flags::binary, topic::16, message_id::16, message::binary>>
   end
 
 end
