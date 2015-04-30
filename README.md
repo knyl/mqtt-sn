@@ -14,7 +14,7 @@ sensor networks.
 
 ** Usage **
 
-Update `mix.exs` with your rsmb broker information (ip, port).
+Update `config/config.exs` with your rsmb broker information (ip, port).
 
 ```
 Mqttsn.Supervisor:start_link()

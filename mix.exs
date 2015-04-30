@@ -15,7 +15,7 @@ defmodule MqttsnLib.Mixfile do
   # Type `mix help compile.app` for more information
   def application do
     [applications: [:logger],
-     env: [ip: {192,168,1,29}, port: 1884]]
+     env: []]
   end
 
   # Dependencies can be Hex packages:
