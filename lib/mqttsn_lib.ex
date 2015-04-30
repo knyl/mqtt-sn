@@ -30,7 +30,7 @@ defmodule MqttsnLib do
     :inets.start()
     socket = connect_to_broker()
     topics = HashDict.new()
-    {ok, table_name} = :dets.open_file(:temp_data_backup, [])
+    {ok, table_name} = :dets.open_file(:temperature_data_backup, [])
     {:ok, %{socket: socket, topics: topics, connected: false,
             subscribe_message: [], reg_topic_status: [], dets: table_name}}
   end
@@ -231,7 +231,7 @@ defmodule MqttsnLib do
 
   def save_data_locally(temperature, time, table_name) do
     result = :dets.insert(table_name, {temperature, time})
-    Logger.debug "Inserting {#{temperature}, #{inspect time}} into dets with result {#inspect result}"
+    Logger.debug "Inserting {#{temperature}, #{inspect time}} into dets with result #{inspect result}"
     :ok
   end
 
