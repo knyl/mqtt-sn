@@ -218,8 +218,8 @@ defmodule MqttsnLib do
     Logger.debug "Got result #{inspect result}"
     case result do
       {{_, 502, _}, _, _} -> save_data_locally(temperature, time, state.dets)
-      {502, _} -> save_data_locally(temperature, time, state.dets)
-      _ -> :ok
+      {{_, 201, _}, _, _} -> :ok
+      error_result -> Logger.debug "Got error result #{inspect error_result}"
     end
   end
 
@@ -231,7 +231,7 @@ defmodule MqttsnLib do
 
   def save_data_locally(temperature, time, table_name) do
     result = :dets.insert(table_name, {temperature, time})
-    Logger.info "Inserting {#{temperature}, #{inspect time}} into dets with result {#inspect result}"
+    Logger.debug "Inserting {#{temperature}, #{inspect time}} into dets with result {#inspect result}"
     :ok
   end
 
