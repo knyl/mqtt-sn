@@ -14,6 +14,13 @@ defmodule Mqttsn.Constants do
     0b10
   end
 
+  def clean_session_flag(true) do
+    1
+  end
+  def clean_session_flag(false) do
+    0
+  end
+
   def message_type(:connect) do
     0x04
   end
@@ -87,6 +94,21 @@ defmodule Mqttsn.Constants do
   end
   def return_code({:rejected, :not_supported}) do
     0x03
+  end
+
+  def flags(flags) do
+    dup = Map.get(flags, :dup, 0)
+    qos = Map.get(flags, :qos, 0)
+    retain = Map.get(flags, :retain, 0)
+    will = Map.get(flags, :will, 0)
+    clean_session = Map.get(flags, :clean_session, 0)
+    topic_id_type = Map.get(flags, :topic_id_type, 0)
+    <<dup::1,
+      qos::2,
+      retain::1,
+      will::1,
+      clean_session::1,
+      topic_id_type::2>>
   end
 
 end

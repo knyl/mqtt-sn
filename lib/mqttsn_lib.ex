@@ -127,7 +127,7 @@ defmodule MqttsnLib do
   defp publish_data(message, topic_data, state) do
     Logger.debug "Publishing on topic: #{inspect topic_data.topic}"
     message_id = get_message_id()
-    flags = Mqttsn.Constants.topic_flag(topic_data.type)
+    flags = %{topic_id_type: Mqttsn.Constants.topic_flag(topic_data.type)}
     data = %{message_id: message_id, flags: flags, topic: topic_data.topic, message: message}
     publish_packet = Mqttsn.Message.encode({:publish, data})
     send_data(publish_packet)
@@ -144,7 +144,7 @@ defmodule MqttsnLib do
   end
 
   defp subscribe_to_topic(topic, state) do
-    flags = Mqttsn.Constants.topic_flag(topic.type)
+    flags = %{topic_id_type: Mqttsn.Constants.topic_flag(topic.type)}
     message_id = get_message_id()
     data = %{message_id: message_id, topic: topic.topic, flags: flags}
     Logger.debug "Subscribing to topic: #{topic.topic}"
@@ -174,7 +174,7 @@ defmodule MqttsnLib do
   defp connect_to_broker() do
     client_id = 16
     Logger.debug "Connecting with client_id #{client_id}"
-    flags = 0
+    flags = %{clean_session: Mqttsn.Constants.clean_session_flag(true)}
     data = %{flags: flags, client_id: client_id}
     connect_packet = Mqttsn.Message.encode({:connect, data})
     send_data(connect_packet)
