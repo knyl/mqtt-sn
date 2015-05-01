@@ -1,4 +1,4 @@
-MqttsnLib
+Mqttsn
 =========
 
 A library, written in Elixir,  implementing the MQTT-SN protocol for
@@ -19,10 +19,10 @@ Update `config/config.exs` with your rsmb broker information (ip, port).
 ```
 Mqttsn.Supervisor:start_link()
 
-MqttsnLib.subscribe(topic_name)
-MqttsnLib.register_topic(topic_name)
+Mqttsn.subscribe(topic_name)
+Mqttsn.register_topic(topic_name)
 
-MqttsnLib.publish(topic_name, binary_data)
+Mqttsn.publish(topic_name, binary_data)
 ```
 
 ** TODO **

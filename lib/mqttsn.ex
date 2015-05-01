@@ -1,4 +1,4 @@
-defmodule MqttsnLib do
+defmodule Mqttsn do
   use GenServer
   require Logger
 
