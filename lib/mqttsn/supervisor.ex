@@ -10,6 +10,6 @@ defmodule Mqttsn.Supervisor do
       worker(Connection.Udp, [{MqttsnLib, :receive_data}]),
       worker(MqttsnLib, [])]
 
-    supervise(children, strategy: :one_for_one)
+    supervise(children, strategy: :one_for_all)
   end
 end
