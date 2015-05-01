@@ -24,6 +24,10 @@ defmodule MqttsnLib do
     GenServer.call(__MODULE__, {:receive_data, data})
   end
 
+  def get_saved_data() do
+    GenServer.call(__MODULE__, :get_saved_data)
+  end
+
   ## Server callbacks
 
   def init(_args) do
@@ -59,6 +63,12 @@ defmodule MqttsnLib do
     parsed_packet = Mqttsn.Message.decode(data)
     {:ok, updated_state} = handle_packet(parsed_packet, state)
     {:reply, :ok, updated_state}
+  end
+
+  def handle_call(:get_saved_data, _from, state) do
+    match_pattern = :'$1'
+    data = :dets.match(state.dets, match_pattern)
+    {:reply, data, state}
   end
 
   #######################################################
