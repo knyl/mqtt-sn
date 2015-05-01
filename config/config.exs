@@ -2,7 +2,7 @@
 # and its dependencies with the aid of the Mix.Config module.
 use Mix.Config
 
-config :mqttsn_lib, ip: 'insert-ip-here', port: 'insert-port-here'
+config :mqttsn, ip: 'insert-ip-here', port: 'insert-port-here'
 
 # This configuration is loaded before any dependency and is restricted
 # to this project. If another project depends on this project, this

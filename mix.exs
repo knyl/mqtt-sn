@@ -15,7 +15,8 @@ defmodule Mqttsn.Mixfile do
   # Type `mix help compile.app` for more information
   def application do
     [applications: [:logger],
-     env: []]
+     env: [],
+     mod: {Mqttsn, []}]
   end
 
   # Dependencies can be Hex packages:

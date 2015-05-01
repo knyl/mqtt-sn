@@ -10,8 +10,8 @@ defmodule Connection.Udp do
    end
 
    def init({module, function}) do
-     ip = Application.get_env(:mqttsn_lib, :ip)
-     port = Application.get_env(:mqttsn_lib, :port)
+     ip = Application.get_env(:mqttsn, :ip)
+     port = Application.get_env(:mqttsn, :port)
      {:ok, socket} = connect(port)
      Logger.info "Connection.Udp has started"
      {:ok, %{ip: ip, port: port, socket: socket, callback_info: {module, function}}}

@@ -16,13 +16,12 @@ sensor networks.
 
 Update `config/config.exs` with your rsmb broker information (ip, port).
 
+
 ```
-Mqttsn.Supervisor:start_link()
+iex> Mqttsn.subscribe(topic_name)
+iex> Mqttsn.register_topic(topic_name)
 
-Mqttsn.subscribe(topic_name)
-Mqttsn.register_topic(topic_name)
-
-Mqttsn.publish(topic_name, binary_data)
+iex> Mqttsn.publish(topic_name, binary_data)
 ```
 
 ** TODO **
