@@ -34,7 +34,9 @@ defmodule MProtocol do
     :inets.start()
     socket = connect_to_broker()
     topics = HashDict.new()
-    {ok, table_name} = :dets.open_file(:temperature_data_backup, [])
+    backup_file = Application.get_env(:mqttsn, :dets_data_file)
+    {ok, table_name} = :dets.open_file(:temperature_data_backup,
+                                       [file: backup_file])
     {:ok, %{socket: socket, topics: topics, connected: false,
             subscribe_message: [], reg_topic_status: [], dets: table_name}}
   end
