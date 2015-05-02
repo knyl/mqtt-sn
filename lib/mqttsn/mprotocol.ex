@@ -32,13 +32,15 @@ defmodule MProtocol do
 
   def init(_args) do
     :inets.start()
-    socket = connect_to_broker()
+    client_id = Application.get_env(:mqttsn, :client_id)
+    socket = connect_to_broker(client_id)
     topics = HashDict.new()
     backup_file = Application.get_env(:mqttsn, :dets_data_file)
     {ok, table_name} = :dets.open_file(:temperature_data_backup,
                                        [file: backup_file])
     {:ok, %{socket: socket, topics: topics, connected: false,
-            subscribe_message: [], reg_topic_status: [], dets: table_name}}
+            subscribe_message: [], reg_topic_status: [], dets: table_name,
+            client_id: client_id}}
   end
 
   def handle_call({:subscribe, topic}, _from, state) do
@@ -183,8 +185,7 @@ defmodule MProtocol do
     10
   end
 
-  defp connect_to_broker() do
-    client_id = 16
+  defp connect_to_broker(client_id) do
     Logger.debug "Connecting with client_id #{client_id}"
     flags = %{clean_session: Mqttsn.Constants.clean_session_flag(true)}
     data = %{flags: flags, client_id: client_id}

@@ -75,12 +75,12 @@ defmodule Mqttsn.Message do
   ## Encode functions
 
   defp encode_connect(%{flags: raw_flags, client_id: client_id}) do
-    length = 8
+    length = 6 + byte_size(client_id)
     msg_type = Mqttsn.Constants.message_type(:connect)
     protocol_id = Mqttsn.Constants.protocol_id()
     flags = Mqttsn.Constants.flags(raw_flags)
     duration = 0x09
-    <<length::8, msg_type::8, flags::binary, protocol_id::8, duration::16, client_id::16>>
+    <<length::8, msg_type::8, flags::binary, protocol_id::8, duration::16, client_id::binary>>
   end
 
   defp encode_subscribe(%{message_id: message_id, topic: topic, flags: raw_flags}) do
