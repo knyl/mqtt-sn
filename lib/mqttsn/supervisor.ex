@@ -1,14 +1,14 @@
 defmodule Mqttsn.Supervisor do
   use Supervisor
 
-  def start_link do
-    Supervisor.start_link(__MODULE__, :ok)
+  def start_link(args) do
+    Supervisor.start_link(__MODULE__, args)
   end
 
-  def init(:ok) do
+  def init([client_id, dets_data_file, ip, port]) do
     children = [
-      worker(Connection.Udp, [{MProtocol, :receive_data}]),
-      worker(MProtocol, [])]
+      worker(Connection.Udp, [{MProtocol, :receive_data}, ip, port]),
+      worker(MProtocol, [client_id, dets_data_file])]
 
     supervise(children, strategy: :one_for_all)
   end

@@ -4,8 +4,8 @@ defmodule MProtocol do
 
   ## Public api
 
-  def start_link(_opts \\ []) do
-    GenServer.start_link(__MODULE__, [], name: __MODULE__)
+  def start_link(client_id, dets_data_file \\ []) do
+    GenServer.start_link(__MODULE__, [client_id, dets_data_file], name: __MODULE__)
   end
 
   def subscribe(topic) do
@@ -30,14 +30,12 @@ defmodule MProtocol do
 
   ## Server callbacks
 
-  def init(_args) do
+  def init(client_id, dets_data_file) do
     :inets.start()
-    client_id = Application.get_env(:mqttsn, :client_id)
     socket = connect_to_broker(client_id)
     topics = HashDict.new()
-    backup_file = Application.get_env(:mqttsn, :dets_data_file)
     {ok, table_name} = :dets.open_file(:temperature_data_backup,
-                                       [file: backup_file])
+                                       [file: dets_data_file])
     {:ok, %{socket: socket, topics: topics, connected: false,
             subscribe_message: [], reg_topic_status: [], dets: table_name,
             client_id: client_id}}

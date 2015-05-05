@@ -2,17 +2,15 @@ defmodule Connection.Udp do
   require Logger
   use GenServer
 
-   def start_link({module, function}) do
-    GenServer.start_link(__MODULE__, {module, function}, name: __MODULE__)
+   def start_link({module, function}, ip, port) do
+    GenServer.start_link(__MODULE__, [{module, function}, ip, port], name: __MODULE__)
    end
 
    def send_data(data) do
      GenServer.call(__MODULE__, {:send, data})
    end
 
-   def init({module, function}) do
-     ip = Application.get_env(:mqttsn, :ip)
-     port = Application.get_env(:mqttsn, :port)
+   def init([{module, function}, ip, port]) do
      {:ok, socket} = connect(port)
      Logger.info "Connection.Udp has started"
      {:ok, %{ip: ip, port: port, socket: socket, callback_info: {module, function}}}
