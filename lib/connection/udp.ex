@@ -1,5 +1,6 @@
 defmodule Connection.Udp do
   require Logger
+  use GenServer
 
    def start_link({module, function}) do
     GenServer.start_link(__MODULE__, {module, function}, name: __MODULE__)
@@ -27,6 +28,11 @@ defmodule Connection.Udp do
       {module, function} = state.callback_info
       apply(module, function, [packet])
       {:noreply, state}
+   end
+
+   def terminate(reason, state) do
+     Logger.info("Udp connection is shutting down due to: #{inspect reason}")
+     :gen_udp.close(state.socket)
    end
 
   defp connect(port) do

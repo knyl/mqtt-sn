@@ -75,6 +75,11 @@ defmodule MProtocol do
     {:reply, data, state}
   end
 
+  def terminate(reason, _state) do
+    # mqtt-sn termination here
+    Logger.info "Mqtt is shutting down due to reason: #{inspect reason}"
+  end
+
   #######################################################
   ## Handlers for different message types
 
