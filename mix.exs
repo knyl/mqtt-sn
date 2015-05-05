@@ -11,7 +11,7 @@ defmodule Mqttsn.Mixfile do
   end
 
   def application do
-    [applications: [:logger],
+    [applications: [:logger, :inets],
      env: [],
      mod: {Mqttsn, []}]
   end
