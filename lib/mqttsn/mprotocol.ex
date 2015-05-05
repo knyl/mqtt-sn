@@ -4,8 +4,8 @@ defmodule MProtocol do
 
   ## Public api
 
-  def start_link(client_id, dets_data_file \\ []) do
-    GenServer.start_link(__MODULE__, [client_id, dets_data_file], name: __MODULE__)
+  def start_link(args) do
+    GenServer.start_link(__MODULE__, args, name: __MODULE__)
   end
 
   def subscribe(topic) do
@@ -24,20 +24,18 @@ defmodule MProtocol do
     GenServer.call(__MODULE__, {:receive_data, data})
   end
 
-  def get_saved_data() do
-    GenServer.call(__MODULE__, :get_saved_data)
+  def register_listener(module, function) do
+    GenServer.call(__MODULE__, {:register_listener, {module, function}})
   end
 
   ## Server callbacks
 
-  def init(client_id, dets_data_file) do
+  def init(client_id) do
     :inets.start()
     socket = connect_to_broker(client_id)
     topics = HashDict.new()
-    {ok, table_name} = :dets.open_file(:temperature_data_backup,
-                                       [file: dets_data_file])
     {:ok, %{socket: socket, topics: topics, connected: false,
-            subscribe_message: [], reg_topic_status: [], dets: table_name,
+            subscribe_message: [], reg_topic_status: [], listeners: [],
             client_id: client_id}}
   end
 
@@ -67,11 +65,12 @@ defmodule MProtocol do
     {:reply, :ok, updated_state}
   end
 
-  def handle_call(:get_saved_data, _from, state) do
-    match_pattern = :'$1'
-    data = :dets.match(state.dets, match_pattern)
-    {:reply, data, state}
+  def handle_call({:register_listener, {module, function}}, _from, state) do
+    updated_listeners = [{module, function} | state.listeners]
+    updated_state = %{state | listeners: updated_listeners}
+    {:reply, :ok, updated_state}
   end
+
 
   def terminate(reason, _state) do
     # mqtt-sn termination here
@@ -98,12 +97,13 @@ defmodule MProtocol do
     {:ok, %{state | connected: true}}
   end
   defp handle_packet({:publish, data}, state) do
+    # TODO: This only handles integers that should be converted to floats right
+    # now
     Logger.debug "Received publish with data #{inspect data}"
     <<raw_temperature::32-integer-signed-little, time::32>> = data.data
     temperature = raw_temperature / 100
-    Logger.info "Received temperature: #{inspect temperature} at time #{time}"
-
-    send_data_to_kibana(temperature, state)
+    Logger.info "Received data: #{inspect temperature} at time #{time}"
+    send_to_listeners(temperature, state.listeners)
     {:ok, state}
   end
   defp handle_packet({:reg_ack, response}, state) do
@@ -202,54 +202,7 @@ defmodule MProtocol do
     Connection.Udp.send_data(packet)
   end
 
-  def send_data_to_kibana(temperature, state) do
-    now = :calendar.universal_time()
-    send_data_to_kibana(temperature, now, state)
+  defp send_to_listeners(data, listeners) do
+    for {module, function} <- listeners, do: apply(module, function, data)
   end
-
-  defp send_data_to_kibana(temperature, time, state) do
-    {{year, month, day}, _} = time
-    date = List.flatten(:io_lib.format("~4.10.0B.~2.10.0B.~2.10.0B", [year, month, day]))
-    Logger.debug "Date: #{date}"
-    url_b = Enum.join(['http://localhost/logstash-', date, '/entry'])
-    url = :erlang.binary_to_list(url_b)
-    username = "foo"
-    password = "foo"
-    auth_string = Enum.join([username, ":", password])
-    headers = [{'Authorization',
-                :erlang.binary_to_list(Enum.join(['Basic ', :base64.encode_to_string(auth_string)]))}]
-    #headers = :erlang.binary_to_list(headers_b)
-    content_type = 'Application/json'
-    timestamp = iso_8601_fmt(time)
-    location = "knyppeldynan"
-    device = "balcony_green_house_01"
-    body_b = Enum.join(["{ \"timestamp\": \"", timestamp, "\", \"location\": \"", location,
-                        "\", \"device\": \"", device, "\", \"temp_01\": ", temperature, "}"])
-    body = :erlang.binary_to_list(body_b)
-    Logger.debug "Going to send request: "
-    Logger.debug "Url: #{url}"
-    Logger.debug "Body: #{body}"
-    Logger.debug "Headers: #{inspect headers}"
-    {ok, result} = :httpc.request(:post, {url, headers, content_type, body}, [], [])
-    Logger.debug "Got result #{inspect result}"
-    case result do
-      {{_, 502, _}, _, _} -> save_data_locally(temperature, time, state.dets)
-      {{_, 201, _}, _, _} -> :ok
-      error_result -> Logger.debug "Got error result #{inspect error_result}"
-    end
-  end
-
-  defp iso_8601_fmt(date_time) do
-    {{year, month, day},{hour, min, sec}} = date_time
-    :io_lib.format("~4.10.0B-~2.10.0B-~2.10.0BT~2.10.0B:~2.10.0B:~2.10.0BZ",
-                   [year, month, day, hour, min, sec])
-  end
-
-  def save_data_locally(temperature, time, table_name) do
-    result = :dets.insert(table_name, {temperature, time})
-    Logger.debug "Inserting {#{temperature}, #{inspect time}} into dets with result #{inspect result}"
-    :ok
-  end
-
-
 end
