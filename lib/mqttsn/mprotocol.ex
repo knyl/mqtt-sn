@@ -36,13 +36,19 @@ defmodule MProtocol do
     topics = HashDict.new()
     {:ok, %{socket: socket, topics: topics, connected: false,
             subscribe_message: [], reg_topic_status: [], listeners: [],
-            client_id: client_id}}
+            client_id: client_id, stored_until_connect: []}}
   end
 
   def handle_call({:subscribe, topic}, _from, state) do
-    true = state.connected # assert to make sure we're connected
     topic_data = prepare_topic_data(state.topics, topic)
-    {:ok, updated_state} = subscribe_to_topic(topic_data, state)
+    updated_state =
+      case state.connected do
+        false ->
+          %{state | stored_until_connect: [{:subscribe, topic_data} | state.stored_until_connect]}
+        true  ->
+          {:ok, updated_state} = subscribe_to_topic(topic_data, state)
+          updated_state
+      end
     {:reply, :ok, updated_state}
   end
 
@@ -71,7 +77,6 @@ defmodule MProtocol do
     {:reply, :ok, updated_state}
   end
 
-
   def terminate(reason, _state) do
     # mqtt-sn termination here
     Logger.info "Mqtt is shutting down due to reason: #{inspect reason}"
@@ -92,9 +97,16 @@ defmodule MProtocol do
   end
   defp handle_packet({:conn_ack, status}, state) do
     Logger.debug "Received conn_ack with status #{inspect status}"
-    # TODO: only handling status ok right now, no error handling
     :ok = status
-    {:ok, %{state | connected: true}}
+    # TODO: only handling status ok right now, no error handling
+    ops = state.stored_until_connect
+    subscribe_fun =
+      fn({:subscribe, topic}, acc_state) ->
+        {:ok, new_acc} = subscribe_to_topic(topic, acc_state)
+        new_acc
+      end
+    updated_state = List.foldl(ops, state, subscribe_fun)
+    {:ok, %{updated_state | connected: true, stored_until_connect: []}}
   end
   defp handle_packet({:publish, data}, state) do
     # TODO: This only handles integers that should be converted to floats right
@@ -203,6 +215,6 @@ defmodule MProtocol do
   end
 
   defp send_to_listeners(data, listeners) do
-    for {module, function} <- listeners, do: apply(module, function, data)
+    for {module, function} <- listeners, do: apply(module, function, [data])
   end
 end
