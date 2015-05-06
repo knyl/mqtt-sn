@@ -9,22 +9,22 @@ defmodule Mqttsn do
   end
 
   def subscribe(topic) do
-    MProtocol.subscribe(topic)
+    Mqttsn.MProtocol.subscribe(topic)
   end
 
   def publish(topic, data) do
-    MProtocol.publish(topic, data)
+    Mqttsn.MProtocol.publish(topic, data)
   end
 
   def register_topic(topic) do
-    MProtocol.register_topic(topic)
+    Mqttsn.MProtocol.register_topic(topic)
   end
 
   def receive_data(data) do
-    MProtocol.receive_data(data)
+    Mqttsn.MProtocol.receive_data(data)
   end
 
-  def register_listener({module, function}) do
-    MProtocol.register_listener({module, function})
+  def register_listener(module, function) do
+    Mqttsn.MProtocol.register_listener(module, function)
   end
 end

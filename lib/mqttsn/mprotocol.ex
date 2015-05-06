@@ -1,4 +1,4 @@
-defmodule MProtocol do
+defmodule Mqttsn.MProtocol do
   use GenServer
   require Logger
 
