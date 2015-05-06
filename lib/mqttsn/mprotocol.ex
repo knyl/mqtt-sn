@@ -21,7 +21,7 @@ defmodule Mqttsn.MProtocol do
   end
 
   def receive_data(data) do
-    GenServer.call(__MODULE__, {:receive_data, data})
+    GenServer.cast(__MODULE__, {:receive_data, data})
   end
 
   def register_listener(module, function) do
@@ -65,16 +65,16 @@ defmodule Mqttsn.MProtocol do
     {:reply, :ok, updated_state}
   end
 
-  def handle_call({:receive_data, data}, _from, state) do
-    parsed_packet = Mqttsn.Message.decode(data)
-    {:ok, updated_state} = handle_packet(parsed_packet, state)
-    {:reply, :ok, updated_state}
-  end
-
   def handle_call({:register_listener, {module, function}}, _from, state) do
     updated_listeners = [{module, function} | state.listeners]
     updated_state = %{state | listeners: updated_listeners}
     {:reply, :ok, updated_state}
+  end
+
+  def handle_cast({:receive_data, data}, state) do
+    parsed_packet = Mqttsn.Message.decode(data)
+    {:ok, updated_state} = handle_packet(parsed_packet, state)
+    {:noreply, updated_state}
   end
 
   def terminate(reason, _state) do
