@@ -32,11 +32,11 @@ defmodule Mqttsn.ProtocolServer do
 
   def init(client_id) do
     :inets.start()
-    socket = connect_to_broker(client_id)
+    :ok = connect_to_broker(client_id)
     topics = HashDict.new()
-    {:ok, %{socket: socket, topics: topics, connected: false,
-            subscribe_message: [], reg_topic_status: [], listeners: [],
-            client_id: client_id, stored_until_connect: []}}
+    {:ok, %{topics: topics, connected: false, subscribe_message: [],
+            reg_topic_status: [], listeners: [], client_id: client_id,
+            stored_subscribes: []}}
   end
 
   def handle_call({:subscribe, topic}, _from, state) do
@@ -44,7 +44,7 @@ defmodule Mqttsn.ProtocolServer do
     updated_state =
       case state.connected do
         false ->
-          %{state | stored_until_connect: [{:subscribe, topic_data} | state.stored_until_connect]}
+          %{state | stored_subscribes: [{:subscribe, topic_data} | state.stored_subscribes]}
         true  ->
           {:ok, updated_state} = subscribe_to_topic(topic_data, state)
           updated_state
@@ -99,14 +99,14 @@ defmodule Mqttsn.ProtocolServer do
     Logger.debug "Received conn_ack with status #{inspect status}"
     :ok = status
     # TODO: only handling status ok right now, no error handling
-    ops = state.stored_until_connect
+    ops = state.stored_subscribes
     subscribe_fun =
       fn({:subscribe, topic}, acc_state) ->
         {:ok, new_acc} = subscribe_to_topic(topic, acc_state)
         new_acc
       end
     updated_state = List.foldl(ops, state, subscribe_fun)
-    {:ok, %{updated_state | connected: true, stored_until_connect: []}}
+    {:ok, %{updated_state | connected: true, stored_subscribes: []}}
   end
   defp handle_packet({:publish, data}, state) do
     # TODO: This only handles integers that should be converted to floats right
@@ -207,6 +207,7 @@ defmodule Mqttsn.ProtocolServer do
     connect_packet = Mqttsn.Message.encode({:connect, data})
     send_data(connect_packet)
     Logger.debug "Sent connect package to broker"
+    :ok
   end
 
   defp send_data(packet) do
