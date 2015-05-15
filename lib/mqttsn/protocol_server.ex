@@ -35,16 +35,16 @@ defmodule Mqttsn.ProtocolServer do
     :ok = connect_to_broker(client_id)
     topics = HashDict.new()
     {:ok, %{topics: topics, connected: false, subscribe_message: [],
-            reg_topic_status: [], listeners: [], client_id: client_id,
-            stored_subscribes: []}}
+            reg_topic_status: [], client_id: client_id}}
   end
 
   def handle_call({:subscribe, topic}, _from, state) do
     topic_data = prepare_topic_data(state.topics, topic)
+    Mqttsn.State.add_topic_subscription(topic_data)
     updated_state =
       case state.connected do
         false ->
-          %{state | stored_subscribes: [{:subscribe, topic_data} | state.stored_subscribes]}
+          state
         true  ->
           {:ok, updated_state} = subscribe_to_topic(topic_data, state)
           updated_state
@@ -66,9 +66,8 @@ defmodule Mqttsn.ProtocolServer do
   end
 
   def handle_call({:register_listener, {module, function}}, _from, state) do
-    updated_listeners = [{module, function} | state.listeners]
-    updated_state = %{state | listeners: updated_listeners}
-    {:reply, :ok, updated_state}
+    :ok = Mqttsn.State.add_listener(module, function)
+    {:reply, :ok, state}
   end
 
   def handle_cast({:receive_data, data}, state) do
@@ -99,14 +98,14 @@ defmodule Mqttsn.ProtocolServer do
     Logger.debug "Received conn_ack with status #{inspect status}"
     :ok = status
     # TODO: only handling status ok right now, no error handling
-    ops = state.stored_subscribes
+    {ok, topics} = Mqttsn.State.get_stored_subscriptions
     subscribe_fun =
-      fn({:subscribe, topic}, acc_state) ->
+      fn(topic, acc_state) ->
         {:ok, new_acc} = subscribe_to_topic(topic, acc_state)
         new_acc
       end
-    updated_state = List.foldl(ops, state, subscribe_fun)
-    {:ok, %{updated_state | connected: true, stored_subscribes: []}}
+    updated_state = List.foldl(topics, state, subscribe_fun)
+    {:ok, %{updated_state | connected: true}}
   end
   defp handle_packet({:publish, data}, state) do
     # TODO: This only handles integers that should be converted to floats right
@@ -115,7 +114,8 @@ defmodule Mqttsn.ProtocolServer do
     <<raw_temperature::32-integer-signed-little, time::32>> = data.data
     temperature = raw_temperature / 100
     Logger.info "Received data: #{inspect temperature} at time #{time}"
-    send_to_listeners(temperature, state.listeners)
+    {:ok, listeners} = Mqttsn.State.get_listeners()
+    send_to_listeners(temperature, listeners)
     {:ok, state}
   end
   defp handle_packet({:reg_ack, response}, state) do

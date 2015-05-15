@@ -7,9 +7,9 @@ defmodule Mqttsn.Supervisor do
 
   def init([client_id, ip, port]) do
     children = [
-      worker(Connection.Udp, [{Mqttsn.ProtocolServer, :receive_data}, ip, port]),
-      worker(Mqttsn.ProtocolServer, [client_id])]
+      worker(Mqttsn.ProtocolServerSup, [client_id, ip, port]),
+      worker(Mqttsn.StateSup, [])]
 
-    supervise(children, strategy: :one_for_all)
+    supervise(children, strategy: :one_for_one)
   end
 end
